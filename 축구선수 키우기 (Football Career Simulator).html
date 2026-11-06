@@ -1,0 +1,1854 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>축구선수 키우기 (Football Player Career Simulator)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter & Noto Sans KR -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        pitch: {
+                            800: '#064e3b',
+                            900: '#022c22',
+                            accent: '#10b981'
+                        },
+                        gold: {
+                            400: '#fbbf24',
+                            500: '#f59e0b',
+                            600: '#d97706'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Noto Sans KR', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #10b981;
+        }
+        
+        .pitch-bg {
+            background: radial-gradient(circle at center, #047857 0%, #064e3b 60%, #022c22 100%);
+            background-size: cover;
+        }
+        
+        .grass-pattern {
+            background-color: #064e3b;
+            background-image: repeating-linear-gradient(0deg, rgba(255,255,255,0.03), rgba(255,255,255,0.03) 40px, transparent 40px, transparent 80px);
+        }
+
+        .glass-card {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .pulse-border {
+            animation: pulse-border-anim 2s infinite;
+        }
+        @keyframes pulse-border-anim {
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); }
+            70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans min-h-screen flex flex-col justify-between select-none overflow-x-hidden">
+
+    <!-- Header Navigation -->
+    <header class="bg-slate-900/90 border-b border-slate-800 sticky top-0 z-40 backdrop-blur-md px-4 py-3">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-emerald-500/20 border border-emerald-500/50 flex items-center justify-center text-emerald-400 font-black text-xl">
+                    <i class="fa-solid font-soccer-ball fa-futbol"></i>
+                </div>
+                <div>
+                    <h1 class="font-extrabold text-lg sm:text-xl tracking-tight text-white flex items-center gap-2">
+                        축구선수 키우기 <span class="text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">PRO CAREER</span>
+                    </h1>
+                    <p id="headerSeasonInfo" class="text-xs text-slate-400">시즌 준비 중</p>
+                </div>
+            </div>
+
+            <!-- Global Status Bar (Header) -->
+            <div id="headerStats" class="hidden md:flex items-center gap-6 text-sm">
+                <div class="flex items-center gap-2" title="소지금">
+                    <i class="fa-solid fa-coins text-amber-400"></i>
+                    <span id="hdrMoney" class="font-bold text-amber-300">₩ 0</span>
+                </div>
+                <div class="flex items-center gap-2" title="명성">
+                    <i class="fa-solid fa-star text-yellow-400"></i>
+                    <span id="hdrReputation" class="font-bold text-slate-200">0</span>
+                </div>
+                <div class="flex items-center gap-2" title="소속팀">
+                    <i class="fa-solid fa-shield-halved text-emerald-400"></i>
+                    <span id="hdrClub" class="font-semibold text-slate-300">-</span>
+                </div>
+                <div class="flex items-center gap-2" title="사기">
+                    <i class="fa-solid fa-face-smile text-cyan-400"></i>
+                    <span id="hdrMorale" class="font-bold text-cyan-300">100%</span>
+                </div>
+            </div>
+
+            <!-- Utility Buttons -->
+            <div class="flex items-center gap-2">
+                <button id="soundToggleBtn" onclick="toggleSound()" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition" title="사운드 토글">
+                    <i id="soundIcon" class="fa-solid fa-volume-high"></i>
+                </button>
+                <button onclick="resetGamePrompt()" class="p-2 rounded-lg bg-red-950/40 hover:bg-red-900/60 border border-red-800/40 text-red-400 transition text-xs flex items-center gap-1">
+                    <i class="fa-solid fa-rotate-left"></i> 리셋
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN CONTAINER -->
+    <main class="max-w-7xl w-full mx-auto p-3 sm:p-6 flex-1">
+
+        <!-- ==================== 1. CHARACTER CREATION SCREEN ==================== -->
+        <div id="creationScreen" class="max-w-2xl mx-auto my-6 sm:my-10 glass-card rounded-2xl p-6 sm:p-8 shadow-2xl border border-slate-700">
+            <div class="text-center mb-8">
+                <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-500/10 text-emerald-400 text-3xl mb-3 border border-emerald-500/30">
+                    <i class="fa-solid fa-user-plus"></i>
+                </div>
+                <h2 class="text-2xl sm:text-3xl font-extrabold text-white">축구선수 생성하기</h2>
+                <p class="text-sm text-slate-400 mt-1">세계 최고 축구 스타를 향한 첫 걸음을 시작하세요.</p>
+            </div>
+
+            <form id="creationForm" onsubmit="handleCreateCharacter(event)" class="space-y-6">
+                <!-- Player Name -->
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-2">선수 이름</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-signature absolute left-3.5 top-3.5 text-slate-500"></i>
+                        <input type="text" id="inputName" required maxlength="12" placeholder="예: 손흥민, 김민재, 박지성" class="w-full bg-slate-900 border border-slate-700 rounded-xl py-3 pl-10 pr-4 text-white focus:outline-none focus:border-emerald-500 transition">
+                    </div>
+                </div>
+
+                <!-- Position Selection -->
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-2">포지션 선택</label>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <label class="pos-option border border-slate-700 rounded-xl p-3 text-center cursor-pointer hover:border-emerald-500 transition bg-slate-900/50">
+                            <input type="radio" name="pos" value="FW" checked class="hidden peer">
+                            <div class="peer-checked:text-emerald-400 font-bold text-slate-300">
+                                <i class="fa-solid fa-soccer-ball text-xl block mb-1 text-red-400"></i>
+                                FW (스트라이커)
+                            </div>
+                            <span class="text-[10px] text-slate-500 block mt-1">골 결정력 & 스피드</span>
+                        </label>
+                        <label class="pos-option border border-slate-700 rounded-xl p-3 text-center cursor-pointer hover:border-emerald-500 transition bg-slate-900/50">
+                            <input type="radio" name="pos" value="MF" class="hidden peer">
+                            <div class="peer-checked:text-emerald-400 font-bold text-slate-300">
+                                <i class="fa-solid fa-arrows-split-up-and-left text-xl block mb-1 text-emerald-400"></i>
+                                MF (미드필더)
+                            </div>
+                            <span class="text-[10px] text-slate-500 block mt-1">패스 & 드리블</span>
+                        </label>
+                        <label class="pos-option border border-slate-700 rounded-xl p-3 text-center cursor-pointer hover:border-emerald-500 transition bg-slate-900/50">
+                            <input type="radio" name="pos" value="DF" class="hidden peer">
+                            <div class="peer-checked:text-emerald-400 font-bold text-slate-300">
+                                <i class="fa-solid fa-shield text-xl block mb-1 text-blue-400"></i>
+                                DF (수비수)
+                            </div>
+                            <span class="text-[10px] text-slate-500 block mt-1">수비력 & 체력</span>
+                        </label>
+                        <label class="pos-option border border-slate-700 rounded-xl p-3 text-center cursor-pointer hover:border-emerald-500 transition bg-slate-900/50">
+                            <input type="radio" name="pos" value="GK" class="hidden peer">
+                            <div class="peer-checked:text-emerald-400 font-bold text-slate-300">
+                                <i class="fa-solid fa-mitten text-xl block mb-1 text-amber-400"></i>
+                                GK (골키퍼)
+                            </div>
+                            <span class="text-[10px] text-slate-500 block mt-1">수비 특화 & 반응속도</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Archetype Style -->
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-2">플레이 스타일 (특성)</label>
+                    <select id="inputStyle" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white focus:outline-none focus:border-emerald-500">
+                        <option value="sniper">🎯 득점 기계 (슈팅 보너스)</option>
+                        <option value="maestro">🪄 중원의 마에스트로 (패스/시야 보너스)</option>
+                        <option value="speedster">⚡ 스피드 데몬 (스피드/드리블 보너스)</option>
+                        <option value="wall">🧱 통곡의 벽 (수비/체력 보너스)</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-xl shadow-lg shadow-emerald-950/50 text-lg transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-play"></i> 프로 커리어 시작하기
+                </button>
+            </form>
+        </div>
+
+
+        <!-- ==================== 2. MAIN GAME DASHBOARD ==================== -->
+        <div id="dashboardScreen" class="hidden space-y-6">
+
+            <!-- Top Player Profile Header Banner -->
+            <div class="glass-card rounded-2xl p-5 border border-slate-800 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
+                <div class="absolute -right-10 -bottom-10 opacity-5 text-emerald-400 text-9xl font-black pointer-events-none">
+                    <i class="fa-solid fa-shirt"></i>
+                </div>
+                
+                <div class="flex items-center gap-5 z-10 w-full md:w-auto">
+                    <!-- Overall Circle Badge -->
+                    <div class="relative flex-shrink-0">
+                        <div class="w-20 h-20 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-800 flex flex-col items-center justify-center text-white shadow-xl border border-emerald-400/40">
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-200">OVR</span>
+                            <span id="playerOVR" class="text-3xl font-black leading-none">65</span>
+                        </div>
+                        <span id="playerPosBadge" class="absolute -bottom-2 -right-2 px-2 py-0.5 rounded text-xs font-black bg-red-600 text-white shadow">FW</span>
+                    </div>
+
+                    <!-- Details -->
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h2 id="playerName" class="text-2xl font-black text-white">홍길동</h2>
+                            <span id="playerArchetype" class="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">득점 기계</span>
+                        </div>
+                        <p class="text-sm text-slate-400 mt-0.5 flex items-center gap-2">
+                            <span id="playerClub" class="text-emerald-400 font-semibold">서울 유스 FC</span> • 
+                            <span id="playerAge">17세</span> • 
+                            <span id="playerTier" class="text-amber-400 font-bold">유스 리그</span>
+                        </p>
+                        <!-- Morale & Stamina status bar -->
+                        <div class="flex items-center gap-4 mt-3 text-xs">
+                            <div class="w-32">
+                                <div class="flex justify-between mb-1">
+                                    <span class="text-slate-400">체력</span>
+                                    <span id="staminaText" class="font-bold text-emerald-400">100 / 100</span>
+                                </div>
+                                <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                                    <div id="staminaBar" class="h-full bg-emerald-500 transition-all duration-300" style="width: 100%"></div>
+                                </div>
+                            </div>
+
+                            <div class="w-32">
+                                <div class="flex justify-between mb-1">
+                                    <span class="text-slate-400">사기</span>
+                                    <span id="moraleText" class="font-bold text-cyan-400">100%</span>
+                                </div>
+                                <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                                    <div id="moraleBar" class="h-full bg-cyan-500 transition-all duration-300" style="width: 100%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Match / Next Action Quick Play -->
+                <div class="z-10 w-full md:w-auto flex flex-col sm:flex-row gap-3">
+                    <button onclick="playMatch()" class="pulse-border px-6 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl shadow-lg transition flex items-center justify-center gap-2 text-base">
+                        <i class="fa-solid fa-play"></i> 다음 경기 진행 (<span id="nextOpponent">전북 FC</span>)
+                    </button>
+                    <button onclick="switchTab('tabTraining')" class="px-5 py-4 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-xl border border-slate-700 transition flex items-center justify-center gap-2 text-sm">
+                        <i class="fa-solid fa-dumbbell text-emerald-400"></i> 훈련 / 휴식
+                    </button>
+                </div>
+            </div>
+
+            <!-- Navigation Tabs -->
+            <div class="flex space-x-2 border-b border-slate-800 pb-2 overflow-x-auto">
+                <button onclick="switchTab('tabMatch')" id="btnTabMatch" class="tab-btn active px-4 py-2.5 rounded-xl text-sm font-bold bg-emerald-600 text-white transition flex items-center gap-2 whitespace-nowrap">
+                    <i class="fa-solid fa-stadium"></i> 경기 진행 & 경기장
+                </button>
+                <button onclick="switchTab('tabStats')" id="btnTabStats" class="tab-btn px-4 py-2.5 rounded-xl text-sm font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 transition flex items-center gap-2 whitespace-nowrap">
+                    <i class="fa-solid fa-chart-pie"></i> 능력치 & 프로필
+                </button>
+                <button onclick="switchTab('tabTraining')" id="btnTabTraining" class="tab-btn px-4 py-2.5 rounded-xl text-sm font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 transition flex items-center gap-2 whitespace-nowrap">
+                    <i class="fa-solid fa-dumbbell"></i> 훈련 & 휴식
+                </button>
+                <button onclick="switchTab('tabTransfer')" id="btnTabTransfer" class="tab-btn px-4 py-2.5 rounded-xl text-sm font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 transition flex items-center gap-2 whitespace-nowrap">
+                    <i class="fa-solid fa-file-contract"></i> 이적 시장
+                </button>
+                <button onclick="switchTab('tabShop')" id="btnTabShop" class="tab-btn px-4 py-2.5 rounded-xl text-sm font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 transition flex items-center gap-2 whitespace-nowrap">
+                    <i class="fa-solid fa-store"></i> 상점 & 라이프
+                </button>
+                <button onclick="switchTab('tabLeague')" id="btnTabLeague" class="tab-btn px-4 py-2.5 rounded-xl text-sm font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 transition flex items-center gap-2 whitespace-nowrap">
+                    <i class="fa-solid fa-trophy"></i> 리그 & 커리어 기록
+                </button>
+            </div>
+
+            <!-- TAB CONTENT 1: MATCH CENTER -->
+            <div id="tabMatch" class="tab-content space-y-6">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    
+                    <!-- Left: Match Field / Stadium Simulator -->
+                    <div class="lg:col-span-2 space-y-4">
+                        <div class="glass-card rounded-2xl p-6 border border-slate-800 relative overflow-hidden grass-pattern min-h-[380px] flex flex-col justify-between">
+                            
+                            <!-- Field Header Info -->
+                            <div class="flex items-center justify-between bg-slate-950/80 p-4 rounded-xl border border-slate-800">
+                                <div class="flex items-center gap-3">
+                                    <span class="w-3 h-3 rounded-full bg-red-500 animate-ping"></span>
+                                    <span id="matchStateBadge" class="text-xs font-bold uppercase tracking-wider text-emerald-400">경기 대기 중</span>
+                                </div>
+                                <div class="text-center">
+                                    <h3 id="scoreboard" class="text-2xl font-black text-white tracking-widest">
+                                        <span id="homeTeamName">서울 유스 FC</span> <span id="homeScore">0</span> : <span id="awayScore">0</span> <span id="awayTeamName">전북 FC</span>
+                                    </h3>
+                                    <p id="matchClock" class="text-xs text-slate-400 font-mono mt-0.5">전반 00분</p>
+                                </div>
+                                <div class="text-right">
+                                    <span id="matchRoundText" class="text-xs font-bold text-slate-300">ROUND 1</span>
+                                </div>
+                            </div>
+
+                            <!-- Interactive Ticker & Pitch Animation -->
+                            <div id="matchPitchVisual" class="my-6 relative min-h-[160px] flex flex-col items-center justify-center text-center p-4">
+                                <div id="pitchBall" class="w-12 h-12 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-2xl text-emerald-300 mb-3 transition-transform duration-500">
+                                    <i class="fa-solid fa-futbol animate-bounce"></i>
+                                </div>
+                                <p id="latestCommentary" class="text-base sm:text-lg font-bold text-white drop-shadow-md bg-slate-950/70 px-4 py-2 rounded-xl border border-slate-800/80 max-w-lg">
+                                    경기를 시작하려면 [다음 경기 진행] 버튼을 클릭하세요!
+                                </p>
+                            </div>
+
+                            <!-- Match Controls -->
+                            <div class="flex items-center justify-between gap-3 bg-slate-950/80 p-3 rounded-xl border border-slate-800">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs text-slate-400">속도:</span>
+                                    <button onclick="setMatchSpeed(1000)" id="speedNormal" class="px-2.5 py-1 text-xs rounded bg-emerald-600 text-white font-bold">보통</button>
+                                    <button onclick="setMatchSpeed(400)" id="speedFast" class="px-2.5 py-1 text-xs rounded bg-slate-800 text-slate-300 hover:bg-slate-700">빠르게</button>
+                                </div>
+                                <button onclick="skipMatch()" id="btnSkipMatch" class="hidden text-xs px-3 py-1.5 rounded bg-amber-600/80 hover:bg-amber-500 text-white font-bold transition">
+                                    <i class="fa-solid fa-forward-fast"></i> 결과 바로보기
+                                </button>
+                            </div>
+
+                        </div>
+
+                        <!-- Match Commentary Logs -->
+                        <div class="glass-card rounded-2xl p-4 border border-slate-800">
+                            <h4 class="text-xs font-bold uppercase text-slate-400 mb-3 flex items-center gap-2">
+                                <i class="fa-solid fa-list-ul text-emerald-400"></i> 경기 실시간 문자 중계
+                            </h4>
+                            <div id="commentaryBox" class="h-44 overflow-y-auto space-y-2 text-xs font-mono pr-2">
+                                <div class="text-slate-500 italic">경기 입장을 기다리고 있습니다...</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Side: Recent Form & Fixture List -->
+                    <div class="space-y-4">
+                        <!-- Next Opponent Analysis Card -->
+                        <div class="glass-card rounded-2xl p-5 border border-slate-800">
+                            <h4 class="text-sm font-bold text-white mb-3 flex items-center gap-2">
+                                <i class="fa-solid fa-magnifying-glass-chart text-emerald-400"></i> 상대팀 데이터 분석
+                            </h4>
+                            <div class="space-y-3 text-xs">
+                                <div class="flex justify-between items-center bg-slate-900/60 p-3 rounded-xl">
+                                    <span class="text-slate-400">상대 클럽:</span>
+                                    <span id="oppName" class="font-bold text-white">전북 FC</span>
+                                </div>
+                                <div class="flex justify-between items-center bg-slate-900/60 p-3 rounded-xl">
+                                    <span class="text-slate-400">상대 난이도:</span>
+                                    <span id="oppDifficulty" class="font-bold text-amber-400">★★☆☆☆ (중하)</span>
+                                </div>
+                                <div class="flex justify-between items-center bg-slate-900/60 p-3 rounded-xl">
+                                    <span class="text-slate-400">예상 경기 분위기:</span>
+                                    <span id="oppTactics" class="font-semibold text-slate-300">공격적 템포 축구</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Season Stats Overview -->
+                        <div class="glass-card rounded-2xl p-5 border border-slate-800">
+                            <h4 class="text-sm font-bold text-white mb-3 flex items-center gap-2">
+                                <i class="fa-solid fa-chart-user text-cyan-400"></i> 이번 시즌 개인 통계
+                            </h4>
+                            <div class="grid grid-cols-3 gap-2 text-center">
+                                <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+                                    <span class="text-[10px] text-slate-400 block">출전</span>
+                                    <span id="stApps" class="text-lg font-black text-white">0</span>
+                                </div>
+                                <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+                                    <span class="text-[10px] text-slate-400 block">득점</span>
+                                    <span id="stGoals" class="text-lg font-black text-emerald-400">0</span>
+                                </div>
+                                <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+                                    <span class="text-[10px] text-slate-400 block">도움</span>
+                                    <span id="stAssists" class="text-lg font-black text-cyan-400">0</span>
+                                </div>
+                            </div>
+                            <div class="mt-3 bg-slate-900/60 p-3 rounded-xl border border-slate-800 flex justify-between text-xs">
+                                <span class="text-slate-400">평균 평점</span>
+                                <span id="stAvgRating" class="font-bold text-amber-400">- / 10.0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- TAB CONTENT 2: STATS & PROFILE -->
+            <div id="tabStats" class="tab-content hidden space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Stat Bars -->
+                    <div class="glass-card rounded-2xl p-6 border border-slate-800 space-y-4">
+                        <h3 class="text-lg font-bold text-white border-b border-slate-800 pb-3 flex items-center gap-2">
+                            <i class="fa-solid fa-sliders text-emerald-400"></i> 주요 세부 능력치
+                        </h3>
+
+                        <!-- Stat Items -->
+                        <div class="space-y-3">
+                            <div>
+                                <div class="flex justify-between text-xs font-bold mb-1">
+                                    <span class="text-slate-300">골 결정력 (Shoot)</span>
+                                    <span id="valShoot" class="text-red-400">60</span>
+                                </div>
+                                <div class="w-full h-2.5 bg-slate-900 rounded-full overflow-hidden">
+                                    <div id="barShoot" class="h-full bg-red-500" style="width: 60%"></div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="flex justify-between text-xs font-bold mb-1">
+                                    <span class="text-slate-300">패스 & 시야 (Pass)</span>
+                                    <span id="valPass" class="text-emerald-400">60</span>
+                                </div>
+                                <div class="w-full h-2.5 bg-slate-900 rounded-full overflow-hidden">
+                                    <div id="barPass" class="h-full bg-emerald-500" style="width: 60%"></div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="flex justify-between text-xs font-bold mb-1">
+                                    <span class="text-slate-300">드리블 & 테크닉 (Dribble)</span>
+                                    <span id="valDribble" class="text-amber-400">60</span>
+                                </div>
+                                <div class="w-full h-2.5 bg-slate-900 rounded-full overflow-hidden">
+                                    <div id="barDribble" class="h-full bg-amber-500" style="width: 60%"></div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="flex justify-between text-xs font-bold mb-1">
+                                    <span class="text-slate-300">수비력 & 대처 (Defense)</span>
+                                    <span id="valDefense" class="text-blue-400">60</span>
+                                </div>
+                                <div class="w-full h-2.5 bg-slate-900 rounded-full overflow-hidden">
+                                    <div id="barDefense" class="h-full bg-blue-500" style="width: 60%"></div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="flex justify-between text-xs font-bold mb-1">
+                                    <span class="text-slate-300">스피드 & 순발력 (Speed)</span>
+                                    <span id="valSpeed" class="text-purple-400">60</span>
+                                </div>
+                                <div class="w-full h-2.5 bg-slate-900 rounded-full overflow-hidden">
+                                    <div id="barSpeed" class="h-full bg-purple-500" style="width: 60%"></div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="flex justify-between text-xs font-bold mb-1">
+                                    <span class="text-slate-300">최대 체력 (Stamina Max)</span>
+                                    <span id="valStaminaMax" class="text-teal-400">100</span>
+                                </div>
+                                <div class="w-full h-2.5 bg-slate-900 rounded-full overflow-hidden">
+                                    <div id="barStaminaMax" class="h-full bg-teal-500" style="width: 60%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Profile Info & Equipment -->
+                    <div class="space-y-6">
+                        <div class="glass-card rounded-2xl p-6 border border-slate-800 space-y-3">
+                            <h3 class="text-lg font-bold text-white border-b border-slate-800 pb-3 flex items-center gap-2">
+                                <i class="fa-solid fa-address-card text-cyan-400"></i> 선수 커리어 요약
+                            </h3>
+                            <div class="grid grid-cols-2 gap-3 text-xs">
+                                <div class="bg-slate-900/60 p-3 rounded-xl">
+                                    <span class="text-slate-500 block">통산 출전</span>
+                                    <span id="careerApps" class="text-base font-bold text-white">0 경기</span>
+                                </div>
+                                <div class="bg-slate-900/60 p-3 rounded-xl">
+                                    <span class="text-slate-500 block">통산 득점</span>
+                                    <span id="careerGoals" class="text-base font-bold text-emerald-400">0 골</span>
+                                </div>
+                                <div class="bg-slate-900/60 p-3 rounded-xl">
+                                    <span class="text-slate-500 block">통산 도움</span>
+                                    <span id="careerAssists" class="text-base font-bold text-cyan-400">0 도움</span>
+                                </div>
+                                <div class="bg-slate-900/60 p-3 rounded-xl">
+                                    <span class="text-slate-500 block">획득 트로피</span>
+                                    <span id="careerTrophies" class="text-base font-bold text-amber-400">0 개</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Equipped Items Summary -->
+                        <div class="glass-card rounded-2xl p-6 border border-slate-800">
+                            <h3 class="text-lg font-bold text-white border-b border-slate-800 pb-3 flex items-center gap-2">
+                                <i class="fa-solid fa-shoe-prints text-amber-400"></i> 착용 장비 & 서비스
+                            </h3>
+                            <div class="mt-3 space-y-2 text-xs">
+                                <div class="flex justify-between items-center bg-slate-900/60 p-3 rounded-xl">
+                                    <span class="text-slate-400">축구화:</span>
+                                    <span id="eqBoots" class="font-bold text-slate-200">기본 축구화 (+0)</span>
+                                </div>
+                                <div class="flex justify-between items-center bg-slate-900/60 p-3 rounded-xl">
+                                    <span class="text-slate-400">개인 트레이너:</span>
+                                    <span id="eqTrainer" class="font-bold text-slate-200">없음</span>
+                                </div>
+                                <div class="flex justify-between items-center bg-slate-900/60 p-3 rounded-xl">
+                                    <span class="text-slate-400">에이전트:</span>
+                                    <span id="eqAgent" class="font-bold text-slate-200">일반 에이전트</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB CONTENT 3: TRAINING & REST -->
+            <div id="tabTraining" class="tab-content hidden space-y-6">
+                <div class="glass-card rounded-2xl p-6 border border-slate-800">
+                    <div class="flex justify-between items-center border-b border-slate-800 pb-4 mb-6">
+                        <div>
+                            <h3 class="text-xl font-black text-white flex items-center gap-2">
+                                <i class="fa-solid fa-person-running text-emerald-400"></i> 주간 훈련 & 휴식 세션
+                            </h3>
+                            <p class="text-xs text-slate-400">체력을 소모하여 능력치를 향상시키거나, 휴식을 통해 체력을 회복하세요.</p>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-xs text-slate-400">현재 체력</span>
+                            <div id="trainStaminaVal" class="text-lg font-black text-emerald-400">100 / 100</div>
+                        </div>
+                    </div>
+
+                    <!-- Training Grid -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        
+                        <!-- Shoot Drill -->
+                        <div class="bg-slate-900/80 rounded-2xl p-4 border border-slate-800 flex flex-col justify-between space-y-4 hover:border-emerald-500/50 transition">
+                            <div>
+                                <div class="w-10 h-10 rounded-xl bg-red-500/10 text-red-400 flex items-center justify-center text-xl mb-3">
+                                    <i class="fa-solid fa-bullseye"></i>
+                                </div>
+                                <h4 class="font-bold text-white text-base">슈팅 훈련</h4>
+                                <p class="text-xs text-slate-400 mt-1">골 결정력과 슈팅 파워 집중 연마.</p>
+                                <div class="mt-3 text-xs space-y-1">
+                                    <span class="text-emerald-400 block font-semibold">+ 골 결정력 상승</span>
+                                    <span class="text-red-400 block font-semibold">- 체력 15 소모</span>
+                                </div>
+                            </div>
+                            <button onclick="doTraining('shoot')" class="w-full py-2.5 bg-slate-800 hover:bg-emerald-600 hover:text-white text-slate-200 font-bold rounded-xl text-xs transition">
+                                훈련 시작
+                            </button>
+                        </div>
+
+                        <!-- Pass Drill -->
+                        <div class="bg-slate-900/80 rounded-2xl p-4 border border-slate-800 flex flex-col justify-between space-y-4 hover:border-emerald-500/50 transition">
+                            <div>
+                                <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-xl mb-3">
+                                    <i class="fa-solid fa-arrows-split-up-and-left"></i>
+                                </div>
+                                <h4 class="font-bold text-white text-base">패스 & 빌드업</h4>
+                                <p class="text-xs text-slate-400 mt-1">시야 확보 및 정확한 전진 패스 훈련.</p>
+                                <div class="mt-3 text-xs space-y-1">
+                                    <span class="text-emerald-400 block font-semibold">+ 패스 수치 상승</span>
+                                    <span class="text-red-400 block font-semibold">- 체력 12 소모</span>
+                                </div>
+                            </div>
+                            <button onclick="doTraining('pass')" class="w-full py-2.5 bg-slate-800 hover:bg-emerald-600 hover:text-white text-slate-200 font-bold rounded-xl text-xs transition">
+                                훈련 시작
+                            </button>
+                        </div>
+
+                        <!-- Speed Drill -->
+                        <div class="bg-slate-900/80 rounded-2xl p-4 border border-slate-800 flex flex-col justify-between space-y-4 hover:border-emerald-500/50 transition">
+                            <div>
+                                <div class="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center text-xl mb-3">
+                                    <i class="fa-solid fa-bolt"></i>
+                                </div>
+                                <h4 class="font-bold text-white text-base">셔틀런 & 스프린트</h4>
+                                <p class="text-xs text-slate-400 mt-1">순발력과 순간 가속도 단련.</p>
+                                <div class="mt-3 text-xs space-y-1">
+                                    <span class="text-emerald-400 block font-semibold">+ 스피드 수치 상승</span>
+                                    <span class="text-red-400 block font-semibold">- 체력 20 소모</span>
+                                </div>
+                            </div>
+                            <button onclick="doTraining('speed')" class="w-full py-2.5 bg-slate-800 hover:bg-emerald-600 hover:text-white text-slate-200 font-bold rounded-xl text-xs transition">
+                                훈련 시작
+                            </button>
+                        </div>
+
+                        <!-- Defense Drill -->
+                        <div class="bg-slate-900/80 rounded-2xl p-4 border border-slate-800 flex flex-col justify-between space-y-4 hover:border-emerald-500/50 transition">
+                            <div>
+                                <div class="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center text-xl mb-3">
+                                    <i class="fa-solid fa-shield-halved"></i>
+                                </div>
+                                <h4 class="font-bold text-white text-base">수비 & 태클 드릴</h4>
+                                <p class="text-xs text-slate-400 mt-1">대인 마크 및 인터셉트 능력 연마.</p>
+                                <div class="mt-3 text-xs space-y-1">
+                                    <span class="text-emerald-400 block font-semibold">+ 수비력 상승</span>
+                                    <span class="text-red-400 block font-semibold">- 체력 15 소모</span>
+                                </div>
+                            </div>
+                            <button onclick="doTraining('defense')" class="w-full py-2.5 bg-slate-800 hover:bg-emerald-600 hover:text-white text-slate-200 font-bold rounded-xl text-xs transition">
+                                훈련 시작
+                            </button>
+                        </div>
+
+                        <!-- Rest Session -->
+                        <div class="bg-slate-900/80 rounded-2xl p-4 border border-slate-800 flex flex-col justify-between space-y-4 hover:border-cyan-500/50 transition md:col-span-2">
+                            <div>
+                                <div class="w-10 h-10 rounded-xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center text-xl mb-3">
+                                    <i class="fa-solid fa-bed"></i>
+                                </div>
+                                <h4 class="font-bold text-white text-base">충분한 수면과 휴식</h4>
+                                <p class="text-xs text-slate-400 mt-1">피로를 해소하고 최상의 컨디션을 회복합니다.</p>
+                                <div class="mt-3 text-xs space-y-1">
+                                    <span class="text-cyan-400 block font-semibold">+ 체력 40 회복, 사기 10% 증가</span>
+                                </div>
+                            </div>
+                            <button onclick="doTraining('rest')" class="w-full py-2.5 bg-cyan-950/60 hover:bg-cyan-600 text-cyan-300 hover:text-white font-bold rounded-xl text-xs transition border border-cyan-800/40">
+                                휴식 취하기
+                            </button>
+                        </div>
+
+                        <!-- Vacation -->
+                        <div class="bg-slate-900/80 rounded-2xl p-4 border border-slate-800 flex flex-col justify-between space-y-4 hover:border-amber-500/50 transition md:col-span-2">
+                            <div>
+                                <div class="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center text-xl mb-3">
+                                    <i class="fa-solid fa-umbrella-beach"></i>
+                                </div>
+                                <h4 class="font-bold text-white text-base">고급 휴가 & 인터뷰</h4>
+                                <p class="text-xs text-slate-400 mt-1">미디어 스포트라이트와 힐링 여행을 즐깁니다.</p>
+                                <div class="mt-3 text-xs space-y-1">
+                                    <span class="text-amber-400 block font-semibold">+ 사기 30% 증가, 명성 10 증가</span>
+                                    <span class="text-red-400 block font-semibold">- 비용 ₩ 500,000</span>
+                                </div>
+                            </div>
+                            <button onclick="doTraining('vacation')" class="w-full py-2.5 bg-amber-950/60 hover:bg-amber-600 text-amber-300 hover:text-white font-bold rounded-xl text-xs transition border border-amber-800/40">
+                                휴가 떠나기
+                            </button>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB CONTENT 4: TRANSFER MARKET -->
+            <div id="tabTransfer" class="tab-content hidden space-y-6">
+                <div class="glass-card rounded-2xl p-6 border border-slate-800">
+                    <div class="border-b border-slate-800 pb-4 mb-6">
+                        <h3 class="text-xl font-black text-white flex items-center gap-2">
+                            <i class="fa-solid fa-file-contract text-emerald-400"></i> 이적 시장 & 구단 오퍼
+                        </h3>
+                        <p class="text-xs text-slate-400">선수의 종합 능력치(OVR)와 명성에 따라 더 높은 등급의 클럽에서 입단 제의가 들어옵니다.</p>
+                    </div>
+
+                    <div id="transferOffersList" class="space-y-4">
+                        <!-- Offers will be dynamically rendered here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB CONTENT 5: SHOP & LIFESTYLE -->
+            <div id="tabShop" class="tab-content hidden space-y-6">
+                <div class="glass-card rounded-2xl p-6 border border-slate-800">
+                    <div class="border-b border-slate-800 pb-4 mb-6">
+                        <h3 class="text-xl font-black text-white flex items-center gap-2">
+                            <i class="fa-solid fa-store text-amber-400"></i> 축구 상점 & 라이프스타일
+                        </h3>
+                        <p class="text-xs text-slate-400">장비를 구매하여 능력치를 올려주거나 슈퍼카 및 에이전트를 고용하세요.</p>
+                    </div>
+
+                    <div id="shopItemsList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <!-- Items dynamically rendered -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB CONTENT 6: LEAGUE & CAREER -->
+            <div id="tabLeague" class="tab-content hidden space-y-6">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- League Table -->
+                    <div class="lg:col-span-2 glass-card rounded-2xl p-6 border border-slate-800">
+                        <h3 class="text-lg font-bold text-white mb-4 flex items-center justify-between">
+                            <span class="flex items-center gap-2"><i class="fa-solid fa-list-ol text-emerald-400"></i> 리그 실시간 순위표</span>
+                            <span id="leagueNameTitle" class="text-xs font-normal text-slate-400">K리그 1부</span>
+                        </h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-xs">
+                                <thead class="bg-slate-900 text-slate-400 uppercase font-bold">
+                                    <tr>
+                                        <th class="p-2.5 rounded-l-lg">순위</th>
+                                        <th class="p-2.5">클럽</th>
+                                        <th class="p-2.5 text-center">경기</th>
+                                        <th class="p-2.5 text-center">승</th>
+                                        <th class="p-2.5 text-center">무</th>
+                                        <th class="p-2.5 text-center">패</th>
+                                        <th class="p-2.5 text-center">득실</th>
+                                        <th class="p-2.5 text-center rounded-r-lg">승점</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="leagueTableBody" class="divide-y divide-slate-800 font-mono">
+                                    <!-- Table rows rendered dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Career History Log -->
+                    <div class="glass-card rounded-2xl p-6 border border-slate-800">
+                        <h3 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                            <i class="fa-solid fa-clock-rotate-left text-cyan-400"></i> 커리어 연도별 히스토리
+                        </h3>
+                        <div id="careerHistoryLog" class="space-y-3 h-80 overflow-y-auto text-xs pr-2">
+                            <!-- History items rendered dynamically -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- ==================== MODALS ==================== -->
+
+    <!-- 1. KEY MOMENT DECISION MODAL -->
+    <div id="modalKeyMoment" class="fixed inset-0 bg-slate-950/90 z-50 hidden flex items-center justify-center p-4 backdrop-blur-md">
+        <div class="glass-card max-w-lg w-full rounded-2xl p-6 border border-emerald-500/50 shadow-2xl relative animate-pulse-once">
+            <div class="text-center mb-6">
+                <span class="px-3 py-1 rounded-full bg-red-500/20 text-red-400 text-xs font-black uppercase tracking-widest border border-red-500/40">⚡ 득점 기회! 결정을 내리세요</span>
+                <h3 id="kmTitle" class="text-2xl font-black text-white mt-2">78분: 상대 수비와의 1:1 상황!</h3>
+                <p id="kmDescription" class="text-xs text-slate-300 mt-2 bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+                    페널티 박스 정면에서 볼을 잡았습니다. 수비수가 다가오고 있습니다. 어떤 플레이를 시도하겠습니까?
+                </p>
+            </div>
+
+            <!-- Choices Container -->
+            <div id="kmChoices" class="space-y-3">
+                <!-- Dynamically populated choices -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. POST-MATCH SUMMARY MODAL -->
+    <div id="modalMatchResult" class="fixed inset-0 bg-slate-950/90 z-50 hidden flex items-center justify-center p-4 backdrop-blur-md">
+        <div class="glass-card max-w-md w-full rounded-2xl p-6 border border-slate-700 shadow-2xl text-center">
+            <div class="w-16 h-16 rounded-full bg-emerald-500/10 text-emerald-400 text-3xl mx-auto flex items-center justify-center mb-4 border border-emerald-500/30">
+                <i class="fa-solid fa-flag-checkered"></i>
+            </div>
+            <h3 class="text-2xl font-black text-white">경기 종료!</h3>
+            <p id="pmScoreText" class="text-lg font-bold text-emerald-400 mt-1">서울 유스 FC 2 : 1 전북 FC</p>
+
+            <!-- Match Stats Box -->
+            <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-800 my-5 text-xs space-y-3">
+                <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+                    <span class="text-slate-400">오늘의 평점</span>
+                    <span id="pmRating" class="text-xl font-black text-amber-400">8.5 / 10</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-400">내 활약상</span>
+                    <span id="pmPerformance" class="font-bold text-white">1 골 1 도움</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-400">경기 수당 / 출전 수당</span>
+                    <span id="pmMoney" class="font-bold text-emerald-400">+ ₩ 500,000</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-400">명성 변동</span>
+                    <span id="pmRep" class="font-bold text-cyan-400">+ 15 명성</span>
+                </div>
+            </div>
+
+            <button onclick="closeMatchResultModal()" class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-xl transition">
+                확인 및 계속하기
+            </button>
+        </div>
+    </div>
+
+    <!-- 3. RANDOM NARRATIVE EVENT MODAL -->
+    <div id="modalRandomEvent" class="fixed inset-0 bg-slate-950/90 z-50 hidden flex items-center justify-center p-4 backdrop-blur-md">
+        <div class="glass-card max-w-lg w-full rounded-2xl p-6 border border-cyan-500/50 shadow-2xl">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-10 h-10 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xl border border-cyan-500/40">
+                    <i class="fa-solid fa-newspaper"></i>
+                </div>
+                <div>
+                    <span class="text-[10px] font-bold text-cyan-400 uppercase tracking-wider">주간 돌발 이벤트</span>
+                    <h3 id="reTitle" class="text-lg font-black text-white">언론사 인터뷰 요청</h3>
+                </div>
+            </div>
+
+            <p id="reDescription" class="text-xs text-slate-300 bg-slate-900/80 p-4 rounded-xl border border-slate-800 mb-5 leading-relaxed">
+                다음 경기를 앞두고 유명 매체에서 당신의 개인 인터뷰를 요청했습니다. 어떻게 대응하시겠습니까?
+            </p>
+
+            <div id="reChoices" class="space-y-3">
+                <!-- Choices rendered dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. RETIREMENT / HALL OF FAME MODAL -->
+    <div id="modalRetire" class="fixed inset-0 bg-slate-950/95 z-50 hidden flex items-center justify-center p-4 backdrop-blur-md">
+        <div class="glass-card max-w-xl w-full rounded-2xl p-8 border border-amber-500/50 shadow-2xl text-center">
+            <div class="w-20 h-20 rounded-full bg-amber-500/20 text-amber-400 text-4xl mx-auto flex items-center justify-center mb-4 border border-amber-500/50">
+                <i class="fa-solid fa-crown"></i>
+            </div>
+            <h2 class="text-3xl font-black text-white">화려한 은퇴 & 명예의 전당</h2>
+            <p id="retireTitleText" class="text-lg font-bold text-amber-400 mt-1">전설의 레전드 선수</p>
+
+            <div class="bg-slate-900/90 p-5 rounded-2xl border border-slate-800 my-6 text-xs space-y-3 text-left">
+                <div class="flex justify-between border-b border-slate-800 pb-2">
+                    <span class="text-slate-400">최종 통산 경출전</span>
+                    <span id="retApps" class="font-bold text-white">0 경기</span>
+                </div>
+                <div class="flex justify-between border-b border-slate-800 pb-2">
+                    <span class="text-slate-400">최종 통산 득점</span>
+                    <span id="retGoals" class="font-bold text-emerald-400">0 골</span>
+                </div>
+                <div class="flex justify-between border-b border-slate-800 pb-2">
+                    <span class="text-slate-400">최종 통산 도움</span>
+                    <span id="retAssists" class="font-bold text-cyan-400">0 도움</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-400">획득 총 트로피</span>
+                    <span id="retTrophies" class="font-bold text-amber-400">0 개</span>
+                </div>
+            </div>
+
+            <button onclick="resetGame()" class="w-full py-4 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl transition text-base">
+                새 커리어 시작하기
+            </button>
+        </div>
+    </div>
+
+
+    <!-- Footer -->
+    <footer class="bg-slate-950 border-t border-slate-900 py-4 text-center text-xs text-slate-600">
+        <p>© 축구선수 키우기 (Football Player Career Simulator) • Single File Web App</p>
+    </footer>
+
+
+    <!-- ==================== JAVASCRIPT LOGIC ==================== -->
+    <script>
+        /* ==================== WEB AUDIO ENGINE ==================== */
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.enabled = true;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                }
+            }
+
+            play(type) {
+                if (!this.enabled) return;
+                try {
+                    this.init();
+                    if (this.ctx.state === 'suspended') {
+                        this.ctx.resume();
+                    }
+
+                    if (type === 'click') {
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(400, this.ctx.currentTime);
+                        osc.frequency.exponentialRampToValueAtTime(800, this.ctx.currentTime + 0.05);
+                        gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                        gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.05);
+                        osc.connect(gain);
+                        gain.connect(this.ctx.destination);
+                        osc.start();
+                        osc.stop(this.ctx.currentTime + 0.05);
+                    } 
+                    else if (type === 'whistle') {
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = 'triangle';
+                        osc.frequency.setValueAtTime(1800, this.ctx.currentTime);
+                        osc.frequency.setValueAtTime(2200, this.ctx.currentTime + 0.1);
+                        gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                        gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.4);
+                        osc.connect(gain);
+                        gain.connect(this.ctx.destination);
+                        osc.start();
+                        osc.stop(this.ctx.currentTime + 0.4);
+                    } 
+                    else if (type === 'kick') {
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(150, this.ctx.currentTime);
+                        osc.frequency.exponentialRampToValueAtTime(30, this.ctx.currentTime + 0.1);
+                        gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+                        gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.1);
+                        osc.connect(gain);
+                        gain.connect(this.ctx.destination);
+                        osc.start();
+                        osc.stop(this.ctx.currentTime + 0.1);
+                    } 
+                    else if (type === 'cheer' || type === 'goal') {
+                        // Fanfare / Cheer synth
+                        const now = this.ctx.currentTime;
+                        [523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
+                            const osc = this.ctx.createOscillator();
+                            const gain = this.ctx.createGain();
+                            osc.type = 'sine';
+                            osc.frequency.value = freq;
+                            gain.gain.setValueAtTime(0.1, now + idx * 0.08);
+                            gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.4);
+                            osc.connect(gain);
+                            gain.connect(this.ctx.destination);
+                            osc.start(now + idx * 0.08);
+                            osc.stop(now + idx * 0.08 + 0.4);
+                        });
+                    }
+                    else if (type === 'cash') {
+                        const now = this.ctx.currentTime;
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(987.77, now);
+                        osc.frequency.setValueAtTime(1318.51, now + 0.08);
+                        gain.gain.setValueAtTime(0.2, now);
+                        gain.gain.linearRampToValueAtTime(0.01, now + 0.25);
+                        osc.connect(gain);
+                        gain.connect(this.ctx.destination);
+                        osc.start();
+                        osc.stop(now + 0.25);
+                    }
+                } catch (e) {
+                    console.log('Audio Context Error', e);
+                }
+            }
+        }
+
+        const soundEngine = new SoundEngine();
+
+        function toggleSound() {
+            soundEngine.enabled = !soundEngine.enabled;
+            const icon = document.getElementById('soundIcon');
+            if (soundEngine.enabled) {
+                icon.className = "fa-solid fa-volume-high";
+                soundEngine.play('click');
+            } else {
+                icon.className = "fa-solid fa-volume-xmark";
+            }
+        }
+
+
+        /* ==================== GAME DATABASE & INITIAL DATA ==================== */
+        const TIERS = [
+            { id: 1, name: "유스 리그", minOVR: 0, salaryPerMatch: 100000 },
+            { id: 2, name: "K리그 2부", minOVR: 62, salaryPerMatch: 500000 },
+            { id: 3, name: "K리그 1부", minOVR: 70, salaryPerMatch: 2000000 },
+            { id: 4, name: "유럽 2부 / 중위권", minOVR: 78, salaryPerMatch: 8000000 },
+            { id: 5, name: "유럽 명문 빅클럽", minOVR: 85, salaryPerMatch: 30000000 }
+        ];
+
+        const CLUBS_DATABASE = [
+            { id: 'youth1', name: '서울 유스 FC', tier: 1, difficulty: 1 },
+            { id: 'k2_1', name: '부산 아이파크', tier: 2, difficulty: 2 },
+            { id: 'k2_2', name: '수원 삼성', tier: 2, difficulty: 2 },
+            { id: 'k1_1', name: '전북 현대', tier: 3, difficulty: 3 },
+            { id: 'k1_2', name: '울산 HD', tier: 3, difficulty: 3 },
+            { id: 'k1_3', name: 'FC 서울', tier: 3, difficulty: 3 },
+            { id: 'eu2_1', name: '아약스', tier: 4, difficulty: 4 },
+            { id: 'eu2_2', name: '벤피카', tier: 4, difficulty: 4 },
+            { id: 'eu1_1', name: '레알 마드리드', tier: 5, difficulty: 5 },
+            { id: 'eu1_2', name: '맨체스터 시티', tier: 5, difficulty: 5 },
+            { id: 'eu1_3', name: '바이에른 뮌헨', tier: 5, difficulty: 5 }
+        ];
+
+        const SHOP_DATABASE = [
+            { id: 'boot1', name: '나이키 머큐리얼', category: 'boots', price: 1500000, stat: 'speed', boost: 3, desc: '스피드 +3 향상' },
+            { id: 'boot2', name: '아디다스 프레데터', category: 'boots', price: 3000000, stat: 'shoot', boost: 5, desc: '골 결정력 +5 향상' },
+            { id: 'trainer1', name: '전담 피지컬 코치', category: 'trainer', price: 10000000, stat: 'staminaMax', boost: 10, desc: '최대 체력 +10 증가' },
+            { id: 'car1', name: '포르쉐 911', category: 'lifestyle', price: 150000000, morale: 20, rep: 30, desc: '사기 +20%, 명성 +30' },
+            { id: 'house1', name: '강남 고급 펜트하우스', category: 'lifestyle', price: 1000000000, morale: 50, rep: 100, desc: '사기 +50%, 명성 +100' }
+        ];
+
+        // Opponents pool for league matches
+        const LEAGUE_TEAMS = [
+            '전북 FC', '울산 FC', '서울 FC', '포항 FC', '인천 FC', 
+            '제주 FC', '대구 FC', '대전 FC', '강원 FC', '수원 FC', '광주 FC'
+        ];
+
+
+        /* ==================== GAME STATE ==================== */
+        let state = {
+            gameStarted: false,
+            player: {
+                name: '',
+                pos: 'FW',
+                archetype: 'sniper',
+                age: 17,
+                stamina: 100,
+                staminaMax: 100,
+                morale: 100,
+                money: 1000000,
+                reputation: 10,
+                club: '서울 유스 FC',
+                tier: 1,
+                stats: {
+                    shoot: 55,
+                    pass: 50,
+                    dribble: 50,
+                    defense: 40,
+                    speed: 60
+                },
+                inventory: [],
+                career: {
+                    apps: 0,
+                    goals: 0,
+                    assists: 0,
+                    trophies: 0,
+                    history: []
+                }
+            },
+            season: {
+                year: 2026,
+                round: 1,
+                maxRounds: 15,
+                goalsThisSeason: 0,
+                assistsThisSeason: 0,
+                appsThisSeason: 0,
+                ratingsSum: 0
+            },
+            matchState: {
+                inProgress: false,
+                homeScore: 0,
+                awayScore: 0,
+                opponent: '전북 FC',
+                minute: 0,
+                speed: 1000,
+                timer: null,
+                goals: 0,
+                assists: 0,
+                rating: 6.0
+            },
+            leagueTable: []
+        };
+
+
+        /* ==================== INITIALIZATION & CREATION ==================== */
+        window.onload = function() {
+            loadGameFromStorage();
+            initLeagueTable();
+            updateUI();
+        };
+
+        function handleCreateCharacter(e) {
+            e.preventDefault();
+            soundEngine.play('click');
+
+            const name = document.getElementById('inputName').value.trim();
+            const pos = document.querySelector('input[name="pos"]:checked').value;
+            const style = document.getElementById('inputStyle').value;
+
+            state.player.name = name || '손흥민';
+            state.player.pos = pos;
+            state.player.archetype = style;
+
+            // Set base stats based on position
+            if (pos === 'FW') {
+                state.player.stats = { shoot: 62, pass: 52, dribble: 58, defense: 35, speed: 64 };
+            } else if (pos === 'MF') {
+                state.player.stats = { shoot: 54, pass: 64, dribble: 60, defense: 50, speed: 56 };
+            } else if (pos === 'DF') {
+                state.player.stats = { shoot: 40, pass: 52, dribble: 48, defense: 65, speed: 58 };
+            } else if (pos === 'GK') {
+                state.player.stats = { shoot: 20, pass: 45, dribble: 30, defense: 70, speed: 50 };
+            }
+
+            // Archetype bonuses
+            if (style === 'sniper') state.player.stats.shoot += 5;
+            if (style === 'maestro') state.player.stats.pass += 5;
+            if (style === 'speedster') state.player.stats.speed += 5;
+            if (style === 'wall') state.player.stats.defense += 5;
+
+            state.gameStarted = true;
+            saveGameToStorage();
+            updateUI();
+        }
+
+        function calculateOVR() {
+            const s = state.player.stats;
+            if (state.player.pos === 'FW') return Math.round(s.shoot * 0.4 + s.speed * 0.3 + s.dribble * 0.2 + s.pass * 0.1);
+            if (state.player.pos === 'MF') return Math.round(s.pass * 0.35 + s.dribble * 0.25 + s.shoot * 0.2 + s.speed * 0.1 + s.defense * 0.1);
+            if (state.player.pos === 'DF') return Math.round(s.defense * 0.5 + s.speed * 0.25 + s.staminaMax * 0.15 + s.pass * 0.1);
+            return Math.round(s.defense * 0.6 + s.speed * 0.2 + s.pass * 0.2); // GK
+        }
+
+        function initLeagueTable() {
+            state.leagueTable = [
+                { name: state.player.club, pts: 0, w: 0, d: 0, l: 0, gd: 0, isPlayer: true },
+                ...LEAGUE_TEAMS.map(name => ({ name, pts: 0, w: 0, d: 0, l: 0, gd: 0, isPlayer: false }))
+            ];
+        }
+
+
+        /* ==================== TAB NAVIGATION ==================== */
+        function switchTab(tabId) {
+            soundEngine.play('click');
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(tabId).classList.remove('hidden');
+
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('bg-emerald-600', 'text-white', 'active');
+                btn.classList.add('bg-slate-800', 'text-slate-300');
+            });
+
+            const activeBtnMap = {
+                'tabMatch': 'btnTabMatch',
+                'tabStats': 'btnTabStats',
+                'tabTraining': 'btnTabTraining',
+                'tabTransfer': 'btnTabTransfer',
+                'tabShop': 'btnTabShop',
+                'tabLeague': 'btnTabLeague'
+            };
+            const activeBtn = document.getElementById(activeBtnMap[tabId]);
+            if (activeBtn) {
+                activeBtn.classList.remove('bg-slate-800', 'text-slate-300');
+                activeBtn.classList.add('bg-emerald-600', 'text-white', 'active');
+            }
+
+            if (tabId === 'tabTransfer') renderTransferOffers();
+            if (tabId === 'tabShop') renderShopItems();
+            if (tabId === 'tabLeague') renderLeagueTable();
+        }
+
+
+        /* ==================== MATCH ENGINE ==================== */
+        function playMatch() {
+            if (state.matchState.inProgress) return;
+
+            if (state.player.stamina < 20) {
+                alert('체력이 너무 부족합니다! (20 이상 필요) 훈련/휴식 탭에서 휴식을 취하세요.');
+                return;
+            }
+
+            soundEngine.play('whistle');
+            switchTab('tabMatch');
+
+            const opp = LEAGUE_TEAMS[(state.season.round - 1) % LEAGUE_TEAMS.length];
+            state.matchState = {
+                inProgress: true,
+                homeScore: 0,
+                awayScore: 0,
+                opponent: opp,
+                minute: 0,
+                speed: 1000,
+                timer: null,
+                goals: 0,
+                assists: 0,
+                rating: 6.0
+            };
+
+            document.getElementById('matchStateBadge').innerText = '경기 진행 중';
+            document.getElementById('homeTeamName').innerText = state.player.club;
+            document.getElementById('awayTeamName').innerText = opp;
+            document.getElementById('btnSkipMatch').classList.remove('hidden');
+            
+            const commentaryBox = document.getElementById('commentaryBox');
+            commentaryBox.innerHTML = '<div class="text-emerald-400 font-bold">[00\'] 심판의 주심 휘슬과 함께 경기가 시작됩니다!</div>';
+
+            runMatchLoop();
+        }
+
+        function setMatchSpeed(ms) {
+            soundEngine.play('click');
+            state.matchState.speed = ms;
+            document.getElementById('speedNormal').className = ms === 1000 ? 'px-2.5 py-1 text-xs rounded bg-emerald-600 text-white font-bold' : 'px-2.5 py-1 text-xs rounded bg-slate-800 text-slate-300';
+            document.getElementById('speedFast').className = ms === 400 ? 'px-2.5 py-1 text-xs rounded bg-emerald-600 text-white font-bold' : 'px-2.5 py-1 text-xs rounded bg-slate-800 text-slate-300';
+        }
+
+        function runMatchLoop() {
+            if (!state.matchState.inProgress) return;
+
+            state.matchState.minute += Math.floor(Math.random() * 5) + 3;
+            if (state.matchState.minute > 90) state.matchState.minute = 90;
+
+            const min = state.matchState.minute;
+            document.getElementById('matchClock').innerText = `경기 시간: ${min}분`;
+            document.getElementById('homeScore').innerText = state.matchState.homeScore;
+            document.getElementById('awayScore').innerText = state.matchState.awayScore;
+
+            // Trigger Interactive Key Moment around 35min or 75min
+            const rollKeyMoment = Math.random();
+            if ((min >= 30 && min <= 45 && !state.matchState.km1) || (min >= 70 && min <= 85 && !state.matchState.km2)) {
+                if (min <= 45) state.matchState.km1 = true;
+                else state.matchState.km2 = true;
+
+                triggerKeyMomentModal(min);
+                return; // Pause match loop until decision made
+            }
+
+            // Standard commentary event
+            generateRandomMatchCommentary(min);
+
+            if (min >= 90) {
+                finishMatch();
+            } else {
+                state.matchState.timer = setTimeout(runMatchLoop, state.matchState.speed);
+            }
+        }
+
+        function generateRandomMatchCommentary(min) {
+            const opp = state.matchState.opponent;
+            const rand = Math.random();
+            let msg = '';
+
+            if (rand < 0.15) {
+                // Opponent scores
+                state.matchState.awayScore++;
+                msg = `<span class="text-red-400 font-bold">[${min}'] ⚽ ${opp}의 날카로운 반격! 골망을 흔듭니다. (${state.matchState.homeScore}:${state.matchState.awayScore})</span>`;
+                soundEngine.play('kick');
+            } else if (rand < 0.35) {
+                // Teammate goal
+                state.matchState.homeScore++;
+                msg = `<span class="text-emerald-400 font-bold">[${min}'] ⚽ ${state.player.club} 동료의 환상적인 중거리 슛 골! (${state.matchState.homeScore}:${state.matchState.awayScore})</span>`;
+                soundEngine.play('cheer');
+            } else if (rand < 0.6) {
+                msg = `[${min}'] ${state.player.name} 선수가 상대 중앙으로 민첩하게 전진합니다.`;
+            } else {
+                msg = `[${min}'] 중원에서 치열한 주도권 싸움이 이어집니다.`;
+            }
+
+            addCommentaryLog(msg);
+        }
+
+        function addCommentaryLog(msg) {
+            const commentaryBox = document.getElementById('commentaryBox');
+            const div = document.createElement('div');
+            div.innerHTML = msg;
+            commentaryBox.appendChild(div);
+            commentaryBox.scrollTop = commentaryBox.scrollHeight;
+            document.getElementById('latestCommentary').innerHTML = msg;
+        }
+
+        /* Interactive Decisions */
+        function triggerKeyMomentModal(min) {
+            soundEngine.play('whistle');
+            const modal = document.getElementById('modalKeyMoment');
+            document.getElementById('kmTitle').innerText = `${min}분: 결정적 결정의 순간!`;
+
+            const choicesBox = document.getElementById('kmChoices');
+            choicesBox.innerHTML = '';
+
+            const stats = state.player.stats;
+
+            // Generate options based on position & stats
+            const options = [
+                {
+                    label: '🔥 강력한 강슛 시도',
+                    statName: '골 결정력',
+                    statVal: stats.shoot,
+                    prob: Math.min(90, Math.max(25, Math.round(stats.shoot * 1.1))),
+                    type: 'shoot'
+                },
+                {
+                    label: '🎯 궤적을 그리는 감아차기',
+                    statName: '골/패스',
+                    statVal: Math.round((stats.shoot + stats.pass) / 2),
+                    prob: Math.min(85, Math.max(30, Math.round((stats.shoot + stats.pass) * 0.6))),
+                    type: 'finesse'
+                },
+                {
+                    label: '🤝 쇄도하는 동료에게 킬패스',
+                    statName: '패스',
+                    statVal: stats.pass,
+                    prob: Math.min(95, Math.max(35, Math.round(stats.pass * 1.2))),
+                    type: 'pass'
+                },
+                {
+                    label: '⚡ 화려한 드리블로 수비 제치기',
+                    statName: '드리블/스피드',
+                    statVal: Math.round((stats.dribble + stats.speed) / 2),
+                    prob: Math.min(85, Math.max(20, Math.round((stats.dribble + stats.speed) * 0.6))),
+                    type: 'dribble'
+                }
+            ];
+
+            options.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.className = "w-full p-4 bg-slate-900 hover:bg-emerald-950 border border-slate-700 hover:border-emerald-500 rounded-xl flex items-center justify-between text-left transition group";
+                btn.innerHTML = `
+                    <div>
+                        <div class="font-bold text-white group-hover:text-emerald-400">${opt.label}</div>
+                        <div class="text-[10px] text-slate-400 mt-0.5">${opt.statName} (${opt.statVal}) 기반</div>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-xs font-black text-emerald-400">성공률 ~${opt.prob}%</span>
+                    </div>
+                `;
+                btn.onclick = () => resolveKeyMoment(opt);
+                choicesBox.appendChild(btn);
+            });
+
+            modal.classList.remove('hidden');
+        }
+
+        function resolveKeyMoment(option) {
+            soundEngine.play('click');
+            document.getElementById('modalKeyMoment').classList.add('hidden');
+
+            const roll = Math.random() * 100;
+            const success = roll <= option.prob;
+
+            if (success) {
+                if (option.type === 'shoot' || option.type === 'finesse' || option.type === 'dribble') {
+                    state.matchState.homeScore++;
+                    state.matchState.goals++;
+                    state.matchState.rating += 1.5;
+                    soundEngine.play('goal');
+                    addCommentaryLog(`<span class="text-emerald-400 font-extrabold">[${state.matchState.minute}'] ⚽ GOAL!!! ${state.player.name}의 환상적인 득점 성공!</span>`);
+                } else {
+                    state.matchState.homeScore++;
+                    state.matchState.assists++;
+                    state.matchState.rating += 1.2;
+                    soundEngine.play('cheer');
+                    addCommentaryLog(`<span class="text-cyan-400 font-extrabold">[${state.matchState.minute}'] 🅰️ ASSIST! ${state.player.name}의 지체 없는 택배 패스로 골 탄생!</span>`);
+                }
+            } else {
+                state.matchState.rating -= 0.2;
+                soundEngine.play('kick');
+                addCommentaryLog(`<span class="text-red-400 font-semibold">[${state.matchState.minute}'] 아쉽게 슈팅/패스가 상대 수비에게 가로막힙니다.</span>`);
+            }
+
+            // Resume match loop
+            state.matchState.timer = setTimeout(runMatchLoop, state.matchState.speed);
+        }
+
+        function skipMatch() {
+            soundEngine.play('click');
+            if (!state.matchState.inProgress) return;
+            clearTimeout(state.matchState.timer);
+
+            // Fast forward remaining minutes
+            state.matchState.minute = 90;
+            document.getElementById('matchClock').innerText = `경기 시간: 90분`;
+
+            // Random goals fill
+            if (Math.random() < 0.4) state.matchState.homeScore += Math.floor(Math.random() * 2);
+            if (Math.random() < 0.4) state.matchState.awayScore += Math.floor(Math.random() * 2);
+
+            finishMatch();
+        }
+
+        function finishMatch() {
+            state.matchState.inProgress = false;
+            soundEngine.play('whistle');
+
+            document.getElementById('matchStateBadge').innerText = '경기 종료';
+            document.getElementById('btnSkipMatch').classList.add('hidden');
+
+            // Rating calculation
+            let finalRating = Math.min(10.0, Math.max(5.0, 6.5 + (state.matchState.goals * 1.5) + (state.matchState.assists * 1.0) + (Math.random() * 0.6 - 0.3)));
+            finalRating = Math.round(finalRating * 10) / 10;
+
+            // Earnings & Stat Updates
+            const tierInfo = TIERS.find(t => t.id === state.player.tier) || TIERS[0];
+            const matchSalary = Math.round(tierInfo.salaryPerMatch * (finalRating / 7.0));
+            const repGain = state.matchState.goals * 10 + state.matchState.assists * 5 + 5;
+            const staminaLoss = Math.floor(Math.random() * 10) + 15;
+
+            state.player.money += matchSalary;
+            state.player.reputation += repGain;
+            state.player.stamina = Math.max(0, state.player.stamina - staminaLoss);
+            state.player.morale = Math.min(100, state.player.morale + (finalRating >= 7.5 ? 10 : -5));
+
+            // Career Totals
+            state.player.career.apps++;
+            state.player.career.goals += state.matchState.goals;
+            state.player.career.assists += state.matchState.assists;
+
+            state.season.appsThisSeason++;
+            state.season.goalsThisSeason += state.matchState.goals;
+            state.season.assistsThisSeason += state.matchState.assists;
+            state.season.ratingsSum += finalRating;
+
+            // Update League Table
+            updateLeagueTableAfterMatch();
+
+            // Show Summary Modal
+            document.getElementById('pmScoreText').innerText = `${state.player.club} ${state.matchState.homeScore} : ${state.matchState.awayScore} ${state.matchState.opponent}`;
+            document.getElementById('pmRating').innerText = `${finalRating} / 10.0`;
+            document.getElementById('pmPerformance').innerText = `${state.matchState.goals} 골  ${state.matchState.assists} 도움`;
+            document.getElementById('pmMoney').innerText = `+ ₩ ${matchSalary.toLocaleString()}`;
+            document.getElementById('pmRep').innerText = `+ ${repGain} 명성`;
+
+            document.getElementById('modalMatchResult').classList.remove('hidden');
+
+            // Check Season progression
+            state.season.round++;
+            if (state.season.round > state.season.maxRounds) {
+                endSeason();
+            } else {
+                // Random Narrative Event roll (30% chance)
+                if (Math.random() < 0.35) {
+                    setTimeout(triggerRandomEventModal, 500);
+                }
+            }
+
+            saveGameToStorage();
+            updateUI();
+        }
+
+        function closeMatchResultModal() {
+            soundEngine.play('click');
+            document.getElementById('modalMatchResult').classList.add('hidden');
+        }
+
+        function updateLeagueTableAfterMatch() {
+            const playerTeam = state.leagueTable.find(t => t.isPlayer);
+            const oppTeam = state.leagueTable.find(t => t.name === state.matchState.opponent);
+
+            const hs = state.matchState.homeScore;
+            const as = state.matchState.awayScore;
+
+            if (playerTeam) {
+                playerTeam.w += hs > as ? 1 : 0;
+                playerTeam.d += hs === as ? 1 : 0;
+                playerTeam.l += hs < as ? 1 : 0;
+                playerTeam.pts += hs > as ? 3 : (hs === as ? 1 : 0);
+                playerTeam.gd += (hs - as);
+            }
+
+            if (oppTeam) {
+                oppTeam.w += as > hs ? 1 : 0;
+                oppTeam.d += as === hs ? 1 : 0;
+                oppTeam.l += as < hs ? 1 : 0;
+                oppTeam.pts += as > hs ? 3 : (as === hs ? 1 : 0);
+                oppTeam.gd += (as - hs);
+            }
+
+            // Simulate other teams
+            state.leagueTable.forEach(team => {
+                if (!team.isPlayer && team !== oppTeam) {
+                    const r = Math.random();
+                    if (r < 0.4) { team.w++; team.pts += 3; team.gd += Math.floor(Math.random() * 3) + 1; }
+                    else if (r < 0.7) { team.d++; team.pts += 1; }
+                    else { team.l++; team.gd -= Math.floor(Math.random() * 2) + 1; }
+                }
+            });
+
+            // Sort table
+            state.leagueTable.sort((a, b) => b.pts - a.pts || b.gd - a.gd);
+        }
+
+
+        /* ==================== TRAINING & REST ==================== */
+        function doTraining(type) {
+            soundEngine.play('click');
+            const p = state.player;
+
+            if (type === 'rest') {
+                p.stamina = Math.min(p.staminaMax, p.stamina + 40);
+                p.morale = Math.min(100, p.morale + 10);
+                alert('💤 충분한 휴식으로 체력과 사기를 회복했습니다!');
+            } else if (type === 'vacation') {
+                if (p.money < 500000) {
+                    alert('잔액이 부족합니다! (₩ 500,000 필요)');
+                    return;
+                }
+                p.money -= 500000;
+                p.morale = 100;
+                p.reputation += 10;
+                alert('🏖️ 고급 휴가를 즐기며 최고의 사기를 충전했습니다!');
+            } else {
+                // Specific training drills
+                const costs = { shoot: 15, pass: 12, speed: 20, defense: 15 };
+                if (p.stamina < costs[type]) {
+                    alert('체력이 부족합니다! 휴식을 취하세요.');
+                    return;
+                }
+
+                p.stamina -= costs[type];
+                p.stats[type] = Math.min(99, p.stats[type] + Math.floor(Math.random() * 2) + 1);
+                soundEngine.play('kick');
+                alert(`🏋️ ${type.toUpperCase()} 훈련 완료! 능력치가 상승했습니다.`);
+            }
+
+            saveGameToStorage();
+            updateUI();
+        }
+
+
+        /* ==================== RANDOM NARRATIVE EVENTS ==================== */
+        function triggerRandomEventModal() {
+            const events = [
+                {
+                    title: "🎤 방송국 인터뷰 요청",
+                    desc: "스포츠 뉴스에서 당신과의 단독 인터뷰를 요청했습니다. 자신감 넘치는 발언을 하시겠습니까?",
+                    options: [
+                        { text: "“제가 이번 시즌 득점왕이 될 것입니다.” (사기 +15, 명성 +10)", effect: () => { state.player.morale = Math.min(100, state.player.morale + 15); state.player.reputation += 10; } },
+                        { text: "“팀의 승리가 우선입니다.” (감독 신임, 사기 +5)", effect: () => { state.player.morale = Math.min(100, state.player.morale + 5); } }
+                    ]
+                },
+                {
+                    title: "🍕 팀 회식 및 락커룸 파티",
+                    desc: "동료들이 주말 저녁 팀 락커룸 회식에 초대했습니다.",
+                    options: [
+                        { text: "참석하여 동료들과 끈끈한 유대를 다진다 (사기 +20, 체력 -10)", effect: () => { state.player.morale = Math.min(100, state.player.morale + 20); state.player.stamina = Math.max(0, state.player.stamina - 10); } },
+                        { text: "정중히 거절하고 개인 야간 훈련을 한다 (스피드 +1, 체력 -15)", effect: () => { state.player.stats.speed = Math.min(99, state.player.stats.speed + 1); state.player.stamina = Math.max(0, state.player.stamina - 15); } }
+                    ]
+                },
+                {
+                    title: "👟 스폰서 용품 지원 제안",
+                    desc: "글로벌 스포츠 브랜드에서 럭셔리 축구화 후원 계약을 제안했습니다.",
+                    options: [
+                        { text: "계약 수락하기 (지원금 ₩ 2,000,000 획득)", effect: () => { state.player.money += 2000000; soundEngine.play('cash'); } }
+                    ]
+                }
+            ];
+
+            const ev = events[Math.floor(Math.random() * events.length)];
+            document.getElementById('reTitle').innerText = ev.title;
+            document.getElementById('reDescription').innerText = ev.desc;
+
+            const choicesBox = document.getElementById('reChoices');
+            choicesBox.innerHTML = '';
+
+            ev.options.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.className = "w-full p-3.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 rounded-xl text-left font-bold text-xs text-white transition";
+                btn.innerText = opt.text;
+                btn.onclick = () => {
+                    soundEngine.play('click');
+                    opt.effect();
+                    document.getElementById('modalRandomEvent').classList.add('hidden');
+                    saveGameToStorage();
+                    updateUI();
+                };
+                choicesBox.appendChild(btn);
+            });
+
+            document.getElementById('modalRandomEvent').classList.remove('hidden');
+        }
+
+
+        /* ==================== TRANSFERS ==================== */
+        function renderTransferOffers() {
+            const container = document.getElementById('transferOffersList');
+            container.innerHTML = '';
+
+            const ovr = calculateOVR();
+            const availableClubs = CLUBS_DATABASE.filter(c => c.name !== state.player.club && ovr >= (TIERS.find(t => t.id === c.tier)?.minOVR || 0) - 5);
+
+            if (availableClubs.length === 0) {
+                container.innerHTML = '<div class="text-xs text-slate-500 text-center py-6">현재 입단 제의가 있는 클럽이 없습니다. OVR을 더 올리세요!</div>';
+                return;
+            }
+
+            availableClubs.forEach(club => {
+                const tierInfo = TIERS.find(t => t.id === club.tier);
+                const card = document.createElement('div');
+                card.className = "bg-slate-900/80 p-4 rounded-xl border border-slate-800 flex items-center justify-between";
+                card.innerHTML = `
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h4 class="font-bold text-white text-base">${club.name}</h4>
+                            <span class="text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30">${tierInfo.name}</span>
+                        </div>
+                        <p class="text-xs text-slate-400 mt-1">예상 경기당 수당: ₩ ${tierInfo.salaryPerMatch.toLocaleString()}</p>
+                    </div>
+                    <button onclick="acceptTransfer('${club.name}', ${club.tier})" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition">
+                        이적 승인
+                    </button>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function acceptTransfer(clubName, tier) {
+            soundEngine.play('cheer');
+            state.player.club = clubName;
+            state.player.tier = tier;
+            state.player.reputation += 50;
+            alert(`🎉 축하합니다! ${clubName} (으)로 성공적으로 이적했습니다!`);
+            initLeagueTable();
+            saveGameToStorage();
+            updateUI();
+            switchTab('tabMatch');
+        }
+
+
+        /* ==================== SHOP & LIFESTYLE ==================== */
+        function renderShopItems() {
+            const container = document.getElementById('shopItemsList');
+            container.innerHTML = '';
+
+            SHOP_DATABASE.forEach(item => {
+                const bought = state.player.inventory.includes(item.id);
+                const card = document.createElement('div');
+                card.className = "bg-slate-900/80 p-4 rounded-xl border border-slate-800 flex flex-col justify-between space-y-3";
+                card.innerHTML = `
+                    <div>
+                        <span class="text-[10px] font-bold text-amber-400 uppercase tracking-wider">${item.category}</span>
+                        <h4 class="font-bold text-white text-sm mt-0.5">${item.name}</h4>
+                        <p class="text-xs text-slate-400 mt-1">${item.desc}</p>
+                    </div>
+                    <div class="flex items-center justify-between border-t border-slate-800 pt-3">
+                        <span class="font-extrabold text-xs text-amber-300">₩ ${item.price.toLocaleString()}</span>
+                        <button ${bought ? 'disabled' : ''} onclick="buyShopItem('${item.id}')" class="px-3 py-1.5 ${bought ? 'bg-slate-800 text-slate-500' : 'bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold'} text-xs rounded-lg transition">
+                            ${bought ? '보유 중' : '구매하기'}
+                        </button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function buyShopItem(itemId) {
+            const item = SHOP_DATABASE.find(i => i.id === itemId);
+            if (!item) return;
+
+            if (state.player.money < item.price) {
+                alert('잔액이 부족합니다!');
+                return;
+            }
+
+            soundEngine.play('cash');
+            state.player.money -= item.price;
+            state.player.inventory.push(item.id);
+
+            // Apply item bonuses
+            if (item.stat) {
+                if (item.stat === 'staminaMax') state.player.staminaMax += item.boost;
+                else state.player.stats[item.stat] += item.boost;
+            }
+            if (item.morale) state.player.morale = Math.min(100, state.player.morale + item.morale);
+            if (item.rep) state.player.reputation += item.rep;
+
+            alert(`🛍️ ${item.name} 구매를 완료했습니다!`);
+            saveGameToStorage();
+            updateUI();
+            renderShopItems();
+        }
+
+
+        /* ==================== LEAGUE TABLE & SEASON PROGRESSION ==================== */
+        function renderLeagueTable() {
+            const body = document.getElementById('leagueTableBody');
+            body.innerHTML = '';
+
+            document.getElementById('leagueNameTitle').innerText = TIERS.find(t => t.id === state.player.tier)?.name || '리그';
+
+            state.leagueTable.forEach((team, idx) => {
+                const tr = document.createElement('tr');
+                tr.className = team.isPlayer ? "bg-emerald-950/40 font-bold text-emerald-400" : "hover:bg-slate-900/50 text-slate-300";
+                tr.innerHTML = `
+                    <td class="p-2.5">${idx + 1}</td>
+                    <td class="p-2.5 flex items-center gap-2">${team.name} ${team.isPlayer ? '<span class="text-[10px] bg-emerald-500 text-slate-950 px-1 rounded">MY</span>' : ''}</td>
+                    <td class="p-2.5 text-center">${team.w + team.d + team.l}</td>
+                    <td class="p-2.5 text-center">${team.w}</td>
+                    <td class="p-2.5 text-center">${team.d}</td>
+                    <td class="p-2.5 text-center">${team.l}</td>
+                    <td class="p-2.5 text-center">${team.gd > 0 ? '+' + team.gd : team.gd}</td>
+                    <td class="p-2.5 text-center font-bold text-white">${team.pts}</td>
+                `;
+                body.appendChild(tr);
+            });
+        }
+
+        function endSeason() {
+            soundEngine.play('cheer');
+            const rank = state.leagueTable.findIndex(t => t.isPlayer) + 1;
+            let titleWon = false;
+
+            if (rank === 1) {
+                state.player.career.trophies++;
+                titleWon = true;
+            }
+
+            const seasonSummary = `${state.season.year} 시즌: ${rank}위 종료 (${state.season.goalsThisSeason}골 ${state.season.assistsThisSeason}도움) ${titleWon ? '🏆 리그 우승!' : ''}`;
+            state.player.career.history.unshift(seasonSummary);
+
+            alert(`🎉 ${state.season.year} 시즌이 종료되었습니다!\n최종 리그 순위: ${rank}위\n시즌 성적: ${state.season.goalsThisSeason}골 ${state.season.assistsThisSeason}도움`);
+
+            // Reset season counter & age player
+            state.season.year++;
+            state.season.round = 1;
+            state.season.goalsThisSeason = 0;
+            state.season.assistsThisSeason = 0;
+            state.season.appsThisSeason = 0;
+            state.player.age++;
+
+            // Retirement Check (Age 35+)
+            if (state.player.age >= 35) {
+                triggerRetirement();
+                return;
+            }
+
+            initLeagueTable();
+            saveGameToStorage();
+            updateUI();
+        }
+
+        function triggerRetirement() {
+            soundEngine.play('cheer');
+            const c = state.player.career;
+            let title = "꾸준한 프로 선수";
+            if (c.goals >= 150 || c.trophies >= 5) title = "전설의 레전드 스타 🌟";
+            else if (c.goals >= 80) title = "월드클래스 공격수 ⚽";
+
+            document.getElementById('retireTitleText').innerText = title;
+            document.getElementById('retApps').innerText = `${c.apps} 경기`;
+            document.getElementById('retGoals').innerText = `${c.goals} 골`;
+            document.getElementById('retAssists').innerText = `${c.assists} 도움`;
+            document.getElementById('retTrophies').innerText = `${c.trophies} 개`;
+
+            document.getElementById('modalRetire').classList.remove('hidden');
+        }
+
+
+        /* ==================== UI BINDING & UPDATES ==================== */
+        function updateUI() {
+            if (!state.gameStarted) {
+                document.getElementById('creationScreen').classList.remove('hidden');
+                document.getElementById('dashboardScreen').classList.add('hidden');
+                return;
+            }
+
+            document.getElementById('creationScreen').classList.add('hidden');
+            document.getElementById('dashboardScreen').classList.remove('hidden');
+
+            const p = state.player;
+            const ovr = calculateOVR();
+
+            // Header Elements
+            document.getElementById('headerSeasonInfo').innerText = `${state.season.year} 시즌 • ${state.season.round}주차`;
+            document.getElementById('hdrMoney').innerText = `₩ ${p.money.toLocaleString()}`;
+            document.getElementById('hdrReputation').innerText = p.reputation;
+            document.getElementById('hdrClub').innerText = p.club;
+            document.getElementById('hdrMorale').innerText = `${p.morale}%`;
+
+            // Profile Card
+            document.getElementById('playerName').innerText = p.name;
+            document.getElementById('playerOVR').innerText = ovr;
+            document.getElementById('playerPosBadge').innerText = p.pos;
+            document.getElementById('playerClub').innerText = p.club;
+            document.getElementById('playerAge').innerText = `${p.age}세`;
+            document.getElementById('playerTier').innerText = TIERS.find(t => t.id === p.tier)?.name || '리그';
+
+            // Bars
+            document.getElementById('staminaText').innerText = `${p.stamina} / ${p.staminaMax}`;
+            document.getElementById('staminaBar').style.width = `${(p.stamina / p.staminaMax) * 100}%`;
+            document.getElementById('trainStaminaVal').innerText = `${p.stamina} / ${p.staminaMax}`;
+
+            document.getElementById('moraleText').innerText = `${p.morale}%`;
+            document.getElementById('moraleBar').style.width = `${p.morale}%`;
+
+            // Opponent for Next Match
+            const nextOpp = LEAGUE_TEAMS[(state.season.round - 1) % LEAGUE_TEAMS.length];
+            document.getElementById('nextOpponent').innerText = nextOpp;
+            document.getElementById('oppName').innerText = nextOpp;
+
+            // Stat Screen Bars
+            const stats = p.stats;
+            document.getElementById('valShoot').innerText = stats.shoot;
+            document.getElementById('barShoot').style.width = `${stats.shoot}%`;
+            document.getElementById('valPass').innerText = stats.pass;
+            document.getElementById('barPass').style.width = `${stats.pass}%`;
+            document.getElementById('valDribble').innerText = stats.dribble;
+            document.getElementById('barDribble').style.width = `${stats.dribble}%`;
+            document.getElementById('valDefense').innerText = stats.defense;
+            document.getElementById('barDefense').style.width = `${stats.defense}%`;
+            document.getElementById('valSpeed').innerText = stats.speed;
+            document.getElementById('barSpeed').style.width = `${stats.speed}%`;
+            document.getElementById('valStaminaMax').innerText = p.staminaMax;
+            document.getElementById('barStaminaMax').style.width = `${(p.staminaMax / 120) * 100}%`;
+
+            // Season Stats overview
+            document.getElementById('stApps').innerText = state.season.appsThisSeason;
+            document.getElementById('stGoals').innerText = state.season.goalsThisSeason;
+            document.getElementById('stAssists').innerText = state.season.assistsThisSeason;
+            const avgRating = state.season.appsThisSeason > 0 ? (state.season.ratingsSum / state.season.appsThisSeason).toFixed(1) : '-';
+            document.getElementById('stAvgRating').innerText = `${avgRating} / 10.0`;
+
+            // Career Totals
+            document.getElementById('careerApps').innerText = `${p.career.apps} 경기`;
+            document.getElementById('careerGoals').innerText = `${p.career.goals} 골`;
+            document.getElementById('careerAssists').innerText = `${p.career.assists} 도움`;
+            document.getElementById('careerTrophies').innerText = `${p.career.trophies} 개`;
+
+            // Render Career History Log
+            const historyContainer = document.getElementById('careerHistoryLog');
+            historyContainer.innerHTML = '';
+            if (p.career.history.length === 0) {
+                historyContainer.innerHTML = '<div class="text-slate-500 italic">아직 기록된 시즌 역사가 없습니다.</div>';
+            } else {
+                p.career.history.forEach(item => {
+                    const div = document.createElement('div');
+                    div.className = "bg-slate-900/60 p-3 rounded-xl border border-slate-800 text-slate-300 font-mono";
+                    div.innerText = item;
+                    historyContainer.appendChild(div);
+                });
+            }
+        }
+
+
+        /* ==================== STORAGE & RESET ==================== */
+        function saveGameToStorage() {
+            try {
+                localStorage.setItem('football_career_save', JSON.stringify(state));
+            } catch (e) {
+                console.log('Storage Error', e);
+            }
+        }
+
+        function loadGameFromStorage() {
+            try {
+                const data = localStorage.getItem('football_career_save');
+                if (data) {
+                    state = JSON.parse(data);
+                }
+            } catch (e) {
+                console.log('Load Storage Error', e);
+            }
+        }
+
+        function resetGamePrompt() {
+            if (confirm('게임 상태를 초기화하고 처음부터 다시 시작하시겠습니까?')) {
+                resetGame();
+            }
+        }
+
+        function resetGame() {
+            localStorage.removeItem('football_career_save');
+            location.reload();
+        }
+    </script>
+</body>
+</html>
